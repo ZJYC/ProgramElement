@@ -1,6 +1,8 @@
 #ifndef __RINGBUFFER_H__
 #define __RINGBUFFER_H__
 
+#include "stm32f1xx_hal.h"
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -8,25 +10,37 @@ extern "C" {
 #define BUFFER_OVERFLOW (-1)
 
 typedef struct {
-    unsigned char *buffer;
-    unsigned int size;
-    unsigned int fill;
-    unsigned char *read;
-    unsigned char *write;
-} RINGBUFFER_T;
+    uint8_t *buffer;
+    uint16_t size;
+    uint16_t fill;
+    uint8_t *read;
+    uint8_t *write;
+} Ringbuff_t;
+
+typedef struct RingbuffOpsTypedef_
+{
+    /* 非零为空 */
+    uint16_t (*IsEmpty)     (Ringbuff_t *rb);
+    /* 非零为满 */
+    uint16_t (*IsFull)      (Ringbuff_t *rb);
+    /* 获取剩余值 */
+    uint16_t (*Remain)      (Ringbuff_t *rb);
+    /* 返回写入数值 */
+    uint16_t (*HasFilled)   (Ringbuff_t *rb);
+    /* 读取 */
+    uint16_t (*Read)        (Ringbuff_t *rb, uint8_t* buf, uint16_t len);
+    /* 写入 */
+    uint16_t (*Write)       (Ringbuff_t *rb, uint8_t* buf, uint16_t len);
+    
+}RingbuffOpsTypedef;
 
 #define RINGBUFFER_NEW(name, size) \
-    static unsigned char ringmem##name[size]; \
-    RINGBUFFER_T name = {ringmem##name, (size), 0, ringmem##name, ringmem##name};
+    static uint8_t ringmem##name[size]; \
+    Ringbuff_t name = {ringmem##name, (size), 0, ringmem##name, ringmem##name};
 
-#define RINGBUFFER_EXTERN(name) extern RINGBUFFER_T name;
+#define RINGBUFFER_EXTERN(name) extern Ringbuff_t name;
 
-int ringbuffer_empty(RINGBUFFER_T *rb);
-
-int ringbuffer_full(RINGBUFFER_T *rb);
-
-int ringbuffer_read(RINGBUFFER_T *rb, unsigned char* buf, unsigned int len);
-int ringbuffer_write(RINGBUFFER_T *rb, unsigned char* buf, unsigned int len);
+extern RingbuffOpsTypedef RB_FUNC;
 
 #if defined(__cplusplus)
 }

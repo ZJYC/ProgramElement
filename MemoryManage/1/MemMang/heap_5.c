@@ -83,7 +83,7 @@ static size_t xBlockAllocatedBit = 0;
 
 /*-----------------------------------------------------------*/
 
-void *pvPortMalloc( size_t xWantedSize )
+static void *pvPortMalloc( size_t xWantedSize )
 {
 BlockLink_t *pxBlock, *pxPreviousBlock, *pxNewBlockLink;
 void *pvReturn = NULL;
@@ -223,7 +223,7 @@ void *pvReturn = NULL;
 }
 /*-----------------------------------------------------------*/
 
-void vPortFree( void *pv )
+static void vPortFree( void *pv )
 {
 uint8_t *puc = ( uint8_t * ) pv;
 BlockLink_t *pxLink;
@@ -271,13 +271,13 @@ BlockLink_t *pxLink;
 }
 /*-----------------------------------------------------------*/
 
-size_t xPortGetFreeHeapSize( void )
+static size_t xPortGetFreeHeapSize( void )
 {
     return xFreeBytesRemaining;
 }
 /*-----------------------------------------------------------*/
 
-size_t xPortGetMinimumEverFreeHeapSize( void )
+static size_t xPortGetMinimumEverFreeHeapSize( void )
 {
     return xMinimumEverFreeBytesRemaining;
 }
@@ -344,7 +344,7 @@ uint8_t *puc;
 }
 /*-----------------------------------------------------------*/
 
-void vPortDefineHeapRegions( const HeapRegion_t * const pxHeapRegions )
+static void vPortDefineHeapRegions( const HeapRegion_t * const pxHeapRegions )
 {
 BlockLink_t *pxFirstFreeBlockInRegion = NULL, *pxPreviousFreeBlock;
 size_t xAlignedHeap;
@@ -436,4 +436,28 @@ const HeapRegion_t *pxHeapRegion;
     /* Work out the position of the top bit in a size_t variable. */
     xBlockAllocatedBit = ( ( size_t ) 1 ) << ( ( sizeof( size_t ) * heapBITS_PER_BYTE ) - 1 );
 }
+
+MM_OpsTypedef MM_Ops = 
+{
+    .Init       = vPortDefineHeapRegions,
+    .Malloc     = pvPortMalloc,
+    .Free       = vPortFree,
+    .HeapSize   = xPortGetFreeHeapSize
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
