@@ -14,12 +14,12 @@ static uint16_t ringbuffer_empty(Ringbuff_t *rb)
     }
 }
 
-static uint16_t ringbuff_remain(Ringbuff_t *rb)
+static uint16_t ringbuff_available(Ringbuff_t *rb)
 {
     return rb->size - rb->fill;
 }
 
-static uint16_t ringbuff_filled(Ringbuff_t *rb)
+static uint16_t ringbuff_used(Ringbuff_t *rb)
 {
     return rb->fill;
 }
@@ -92,8 +92,8 @@ RingbuffOpsTypedef RB_FUNC =
 {
     .IsEmpty    = ringbuffer_empty,
     .IsFull     = ringbuffer_full,
-    .Remain     = ringbuff_remain,
-    .HasFilled  = ringbuff_filled,
+    .Available     = ringbuff_available,
+    .Used  = ringbuff_used,
     .Read       = ringbuffer_read,
     .Write      = ringbuffer_write
 };

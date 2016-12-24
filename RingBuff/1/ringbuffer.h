@@ -24,9 +24,9 @@ typedef struct RingbuffOpsTypedef_
     /* 非零为满 */
     uint16_t (*IsFull)      (Ringbuff_t *rb);
     /* 获取剩余值 */
-    uint16_t (*Remain)      (Ringbuff_t *rb);
+    uint16_t (*Available)      (Ringbuff_t *rb);
     /* 返回写入数值 */
-    uint16_t (*HasFilled)   (Ringbuff_t *rb);
+    uint16_t (*Used)   (Ringbuff_t *rb);
     /* 读取 */
     uint16_t (*Read)        (Ringbuff_t *rb, uint8_t* buf, uint16_t len);
     /* 写入 */
