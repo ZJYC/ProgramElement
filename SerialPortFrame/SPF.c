@@ -6,22 +6,37 @@ static HeapRegion_t xHeapRegions[] =
     {SP_Pool,4096},
     { NULL, 0 }
 };
-
-pSerialPortTypedef SP_Init(uint32_t ID)
+/*
+****************************************************
+*  函数名         : SP_Init
+*  函数描述       : SP初始化
+*  参数           : 
+                    ID：每一个SP控制块用ID进行识别，后期会有用处
+                    RxBuffSize：接收缓冲大小，暂时认为不能为0
+                    TxBuffLen：发送缓冲长度，暂时认为不能为0
+*  返回值         : 
+*  作者           : -5A4A5943-
+*  历史版本       : 
+*****************************************************
+*/
+pSerialPortTypedef SP_Init(uint32_t ID,uint32_t RxBuffSize,uint32_t TxBuffLen)
 {
     pSerialPortTypedef SerialPortTemp = 0x00;
+    /* 暂时认为不能把缓冲区0 */
+    BT_CHK_PARAM(RxBuffSize);
+    BT_CHK_PARAM(TxBuffLen);
     
     MM_Ops.Init(xHeapRegions);
     
     SerialPortTemp = (pSerialPortTypedef)MM_Ops.Malloc(sizeof(SerialPortTypedef));
     memset((void*)SerialPortTemp,'\0',sizeof(SerialPortTypedef));
 
-    SerialPortTemp.RxRB.buffer = MM_Ops.Malloc(1024);
-    memset((void*)SerialPortTemp.RxRB.buffer,'\0',1024);
-    SerialPortTemp.RxRB.size = 1024;
-    SerialPortTemp.TxRB.buffer = MM_Ops.Malloc(1024);
-    memset((void*)SerialPortTemp.TxRB.buffer,'\0',1024);
-    SerialPortTemp.TxRB.size = 1024;
+    SerialPortTemp.RxRB.buffer = MM_Ops.Malloc(RxBuffSize);
+    memset((void*)SerialPortTemp.RxRB.buffer,'\0',RxBuffSize);
+    SerialPortTemp.RxRB.size = RxBuffSize;
+    SerialPortTemp.TxRB.buffer = MM_Ops.Malloc(TxBuffLen);
+    memset((void*)SerialPortTemp.TxRB.buffer,'\0',TxBuffLen);
+    SerialPortTemp.TxRB.size = TxBuffLen;
     
     SerialPortTemp->ID = ID;
     
@@ -29,6 +44,20 @@ pSerialPortTypedef SP_Init(uint32_t ID)
     return SerialPortTemp;
 }
 
+/*
+****************************************************
+*  函数名         : SP_Send
+*  函数描述       : 发送数据
+*  参数           : 
+                    pSerialPort：SP控制块
+                    Data：数据地址
+                    TxLen：发送数据长度
+                    Timeout：超时（如果缓冲区满了，我们要等待直到有足够的空间来存储）
+*  返回值         : 
+*  作者           : -5A4A5943-
+*  历史版本       : 
+*****************************************************
+*/
 uint16_t SP_Send(pSerialPortTypedef pSerialPort,uint8_t * Data,uint16_t TxLen,uint16_t Timeout)
 {
     /* 执行参数检查 */
@@ -51,9 +80,9 @@ uint16_t SP_Send(pSerialPortTypedef pSerialPort,uint8_t * Data,uint16_t TxLen,ui
 }
 /*
 ****************************************************
-*  函数名         : 
+*  函数名         : LowerLayerTxFirstByte
 *  函数描述       : 本函数需要用户自行实现,只在发送数据时调用一次，后续由中断控制
-*  参数           : 
+*  参数           : pSerialPort：控制块
 *  返回值         : 
 *  作者           : -5A4A5943-
 *  历史版本       : 
@@ -65,143 +94,126 @@ uint16_t LowerLayerTxFirstByte(pSerialPortTypedef pSerialPort)
     
     BT_CHK_PARAM(pSerialPort);
     
-    if(pSerialPort->u.bit.Txing == 0 && pSerialPort->u.bit.TxEn == 1)
+    if(pSerialPort->u.bit.TxEn == 1)
     {
-        /* 以使得中断发送得以继续 */
-        pSerialPort->u.bit.Txing = 1;
-        /* 有数据存储在RB */
-        if(RB_FUNC.Used(pSerialPort->TxRB) != 0)
+        /* 当前没有字节流在发送 */
+        if(pSerialPort->u.bit.Txing == 0)
         {
-            /* 读取一字节数据 */
-            RB_FUNC.Read(&pSerialPort->TxRB,&Temp,1);
-            /* 发送数据 */
-            UsartSendIT(uart1,&Temp,1);
-            return (uint16_t)Res_OK;
+            /* 有数据存储在RB */
+            if(RB_FUNC.Used(pSerialPort->TxRB) != 0)
+            {
+                /* 读取一字节数据 */
+                RB_FUNC.Read(&pSerialPort->TxRB,&Temp,1);
+                /* 发送数据 */
+                UsartSendIT(uart1,&Temp,1);
+                return (uint16_t)Res_OK;
+            }
+            /* 没有数据可以发送 */
+            else
+            {
+                pSerialPort->u.bit.Txing = 0;
+                pSerialPort->u.bit.TxEn = 0;
+                return (uint16_t)Res_NoData2Send;
+            }
         }
-        /* 没有数据可以发送 */
         else
         {
-            pSerialPort->u.bit.Txing = 0;
-            return (uint16_t)Res_NoData2Send;
+            return (uint16_t)Res_NowTxing;
         }
     }
     if(pSerialPort->u.bit.TxEn == 0)return (uint16_t)Res_SendNotAllowes;
-    return (uint16_t)Res_NowTxing;
 }
+
 /*
 ****************************************************
-*  函数名         : 
-*  函数描述       : 发送中断应调用此函数
+*  函数名         : SP_Recv
+*  函数描述       : 接收数据
 *  参数           : 
+                    pSerialPort：控制块
+                    Data：数据缓冲
+                    MaxLen：期望接受长度
+                    Timeout：超时
 *  返回值         : 
+                    Res_OK
+                    Res_RxDataHaveRecv
+                    Res_RxTimeout
+                    Res_False
 *  作者           : -5A4A5943-
 *  历史版本       : 
 *****************************************************
 */
-uint16_t FuncTxIntHook(pSerialPortTypedef pSerialPort)
+uint16_t SP_Recv(pSerialPortTypedef pSerialPort,uint8_t * Data,uint16_t *MaxLen,uint16_t Timeout)
 {
-    BT_CHK_PARAM(pSerialPort);
-    /* 确保我们处于发送状态 */
-    if(pSerialPort->u.bit.Txing == 1 && pSerialPort->u.bit.TxEn == 1)
-    {
-        /* 有数据存储在RB */
-        if(RB_FUNC.Used(pSerialPort->TxRB) != 0)
-        {
-            /* 读取一字节数据 */
-            RB_FUNC.Read(&pSerialPort->TxRB,&Temp,1);
-            /* 发送数据 */
-            UsartSendIT(uart1,&Temp,1);
-            
-            return (uint16_t)Res_OK;
-        }
-        /* 没有数据可以发送 */
-        else
-        {
-            pSerialPort->u.bit.Txing = 0;
-            pSerialPort->u.bit.TxFin = 0;
-            pSerialPort->u.bit.TxEn = 0;
-            return (uint16_t)Res_TxFinished;
-        }
-    }
-    if(pSerialPort->u.bit.TxEn == 0)return (uint16_t)Res_SendNotAllowes;
-    return (uint16_t)Res_NowTxing;
-}
-
-uint16_t FuncTickHook(pSerialPortTypedef pSerialPort,uint16_t Period)
-{
-    BT_CHK_PARAM(pSerialPort);
-    /* 递增计数值 */
-    TickAdd(pSerialPort->Counter,Period);
-    
-    if(pSerialPort->u.bit.RxEn == 1 && GetInterval(pSerialPort->Counter,pSerialPort->LastRxTime) > pSerialPort->RxInterval)
-    {
-        pSerialPort->u.bit.RxFin = 1;
-        if(pSerialPort->u.bit.AutoCloseRx == 1)pSerialPort->u.bit.RxEn = 0;
-    }
-    
-    return (uint16_t)Res_OK;
-}
-
-uint16_t SP_Recv(pSerialPortTypedef pSerialPort,uint8_t * Data,uint16_t MaxLen,uint16_t Timeout)
-{
-    uint16_t i = 0;
-    
     BT_CHK_PARAM(pSerialPort);
     BT_CHK_PARAM(Data);
     pSerialPort->RxInterval = 30;
     
     /* 缓冲区里有数据等待取回 */
-    if(pSerialPort->u.bit.RxFin == 1)return (uint16_t)Res_RxDataHaveRecv;
+    if(pSerialPort->u.bit.RxFin == 1 || pSerialPort->u.bit.Rxing == 1)return (uint16_t)Res_RxDataHaveRecv;
     
     /* 如果指定了数据长度 并且 RB有足够的数据 */
-    if((MaxLen != 0) && RB_FUNC.Used(&pSerialPort->RxRB) >= MaxLen)
+    if((*MaxLen != 0) && RB_FUNC.Used(&pSerialPort->RxRB) >= *MaxLen)
     {
-        RB_FUNC.Read(&pSerialPort->RxRB,Data,MaxLen);
+        RB_FUNC.Read(&pSerialPort->RxRB,Data,*MaxLen);
         
-        return MaxLen;
+        return Res_OK;
     }
     /* RB显然没有足够的数据  但是调用者希望得到MaxLen长度*/
-    if((MaxLen != 0) && RB_FUNC.Used(&pSerialPort->RxRB) < MaxLen)
+    if((*MaxLen != 0) && RB_FUNC.Used(&pSerialPort->RxRB) < *MaxLen)
     {
-        if(LowerLayerPrapareRx(pSerialPort) == (uint16_t)Res_OK)
+        LowerLayerPrapareRx(pSerialPort);
+        /* 没有探测到字符流则等待Timeout */
+        while(GetInterval(pSerialPort->Counter,pSerialPort->LastRxTime) < Timeout)
         {
-            /* 没有探测到字符流则等待Timeout */
-            while(GetInterval(pSerialPort->Counter,pSerialPort->LastRxTime) < Timeout)
-            {
-                /* 探测到字符流 */
-                if(pSerialPort->u.bit.Rxing == 1)
-                {
-                    break;
-                }
-            }
+            /* 探测到字符流 */
             if(pSerialPort->u.bit.Rxing == 1)
             {
-                /* 依然没有收到调用者期望的数据长 */
-                if(RB_FUNC.Used(&pSerialPort->RxRB) < MaxLen)
-                {
-                    return (uint16_t)Res_RxTimeout;
-                }
-                /* 符合调用者的要求 */
-                else
-                {
-                    RB_FUNC.Read(&pSerialPort->RxRB,Data,MaxLen);
-                    return MaxLen;
-                }
+                break;
             }
-            if(pSerialPort->u.bit.Rxing == 0)return (uint16_t)Res_RxTimeout;
         }
+        if(GetInterval(pSerialPort->Counter,pSerialPort->LastRxTime) >= Timeout)return (uint16_t)Res_RxTimeout;
+        /* 字符流接收完成 */
+        /* 这里我们认为字符流肯定会有结束 */
+        //////////////////////////////////////
+        /* 这里隐藏一很严重的隐患，程序会死在这里 */
+        //////////////////////////////////////
+        while(pSerialPort->u.bit.RxFin == 0);
+        /* 依然没有收到调用者期望的数据长 */
+        if(RB_FUNC.Used(&pSerialPort->RxRB) < *MaxLen)
+        {
+            return (uint16_t)Res_RxTimeout;
+        }
+        /* 符合调用者的要求 */
         else
         {
-            /* 别人正在接收？ */
+            RB_FUNC.Read(&pSerialPort->RxRB,Data,*MaxLen);
+            return Res_OK;
         }
     }
-    
-    
+    /* 调用者不指定接受长度 */
+    if(*MaxLen == 0)
+    {
+        uint16_t RxLen = RB_FUNC.Used(&pSerialPort->RxRB);
+        RB_FUNC.Read(&pSerialPort->RxRB,Data,RxLen);
+        *MaxLen = RxLen;
+        return Res_OK;
+    }
+    return Res_False;
 }
 
+/*
+****************************************************
+*  函数名         : LowerLayerPrapareRx
+*  函数描述       : 开始准备接收
+*  参数           : pSerialPort：控制块
+*  返回值         : 
+                    Res_OK：
+*  作者           : -5A4A5943-
+*  历史版本       : 
+*****************************************************
+*/
 uint16_t LowerLayerPrapareRx(pSerialPortTypedef pSerialPort)
 {
-    if(pSerialPort->u.bit.RxEn == 1)return (uint16_t)Res_NowRxing;
     /* 允许中断接收数据 */
     pSerialPort->u.bit.RxEn = 1;
     pSerialPort->u.bit.Rxing = 0;
@@ -210,25 +222,21 @@ uint16_t LowerLayerPrapareRx(pSerialPortTypedef pSerialPort)
     return Res_OK;
 }
 
-uint16_t FuncRxIntHook(pSerialPortTypedef pSerialPort)
+
+/*
+****************************************************
+*  函数名         : LowerLayerInit
+*  函数描述       : 初始化底层接口
+*  参数           : pSerialPort：控制块
+*  返回值         : 
+*  作者           : -5A4A5943-
+*  历史版本       : 
+*****************************************************
+*/
+uint16_t LowerLayerInit(pSerialPortTypedef pSerialPort)
 {
-    uint8_t Temp = 0;
-    /* 首先确保允许接收 */
-    if(pSerialPort->u.bit.RxEn == 1)
-    {
-        /* 刷新计数值 */
-        pSerialPort->LastRxTime = pSerialPort->Counter;
-        /* 开始接收字符流 */
-        pSerialPort->u.bit.Rxing = 1;
-        
-        UsartRxData(&Temp);
-        
-        RB_FUNC.Write(&pSerialPort->RxRB,Temp,1);
-        
-    }
+    UsartInit(pSerialPort);
 }
-
-
 
 
 

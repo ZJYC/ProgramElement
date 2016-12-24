@@ -47,6 +47,9 @@ typedef struct SP_ResTypedef_
     Res_NowRxing = 6,
     Res_RxTimeout = 7,
     Res_RxDataHaveRecv = 8,
+    Res_RxNotAllowed = 9,
+    Res_AutoClosed = 10,
+    Res_RxInterval = 11,
     
     Res_Reserve = 1000
 }SP_ResTypedef;
@@ -84,7 +87,7 @@ uint16_t LowerLayerRx(pSerialPortTypedef pSerialPort);
 /* 发送数据，返回发送的数据长度 */
 uint16_t LowerLayerTx(pSerialPortTypedef pSerialPort);
 /* 串口初始化 */
-uint16_t LowerLayerInit(pSerialPortTypedef pSerialPort,);
+uint16_t LowerLayerInit(pSerialPortTypedef pSerialPort);
 /* 回调函数 */
 
 /* 定时回调 */
