@@ -25,7 +25,10 @@
 #define BT_CLR_BIT(val,bit) {(val) &= ~(1 << (bit));}
 /* ¾ø¶ÔÖµ */
 #define BT_ABS(x)           ((x) > 0 ? (x):(-(x)))
-
+/* ×Ö·û´®±È½Ï--·ÀÖ¹±àÒëÆ÷¾¯¸æ */
+#define G63_STR_EQL(x,y)         (strcmp((const char *)(x),(const char *)(y)) == (0))
+/* ×Ö·û´®¸´ÖÆ--·ÀÖ¹±àÒëÆ÷¾¯¸æ */
+#define G63_STR_CPY(x,y)         strcpy((char *)(x),(char *)(y))
 
 #endif
 
