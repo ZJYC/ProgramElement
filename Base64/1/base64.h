@@ -1,7 +1,15 @@
 #ifndef __BASE64_H__
 #define __BASE64_H__
 
-#include "stm32f1xx_hal.h"
+#ifndef uint8_t
+    #define uint8_t unsigned char
+#endif
+#ifndef uint16_t
+    #define uint16_t unsigned int
+#endif
+#ifndef int8_t
+    #define int8_t signed char
+#endif
 
 typedef enum Base64ResultTypedef_
 {
@@ -16,7 +24,7 @@ typedef struct Base64Typedef_
     
 }Base64Typedef;
 
-extern Base64Typedef Base64;
+extern Base64Typedef base64;
 
 #endif /* __BASE64_H__ */
 

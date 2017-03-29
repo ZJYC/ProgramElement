@@ -147,13 +147,18 @@ static Base64ResultTypedef base64_decode(uint8_t *in, uint16_t inlen, uint8_t *o
     return BASE64_OK;
 }
 
-Base64Typedef Base64 = 
+Base64Typedef base64 = 
 {
     .Encode = base64_encode,
     .Decode = base64_decode,
 };
 
-
+//static uint8_t Data1[100] = "MTIzNDU2Nzg5MFpYQ1ZCTk0=";
+//static uint8_t Data2[100] = {0x00};
+//static uint16_t Data1Len = 0;
+//static uint16_t Data2Len = 0;
+//base64.Decode(Data1,strlen(Data1),Data2,&Data2Len);
+//base64.Encode(Data2,strlen(Data2),Data1,&Data1Len);
 
 
 
