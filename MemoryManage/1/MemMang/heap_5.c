@@ -7,7 +7,7 @@ HeapRegion_t结构的数组，HeapRegion定义如下：
 typedef struct HeapRegion
 {
     uint8_t *pucStartAddress; << 首地址
-    size_t xSizeInBytes;      << 大小
+    uint32_t xSizeInBytes;      << 大小
 } HeapRegion_t;
 
 数组以NULL结尾，而且，数组必须的从低到高书写，如下：
@@ -39,16 +39,16 @@ task.h is included from an application file. */
 //#endif
 
 /* 块大小不应太小*/
-#define heapMINIMUM_BLOCK_SIZE  ( ( size_t ) ( xHeapStructSize << 1 ) )
+#define heapMINIMUM_BLOCK_SIZE  ( ( uint32_t ) ( xHeapStructSize << 1 ) )
 
 /* 每一字节8位 */
-#define heapBITS_PER_BYTE       ( ( size_t ) 8 )
+#define heapBITS_PER_BYTE       ( ( uint32_t ) 8 )
 
 /* 定义链表结构体，用于根据内存地址连接空闲块 */
 typedef struct A_BLOCK_LINK
 {
     struct A_BLOCK_LINK *pxNextFreeBlock;   /*<< 下一个空闲块 */
-    size_t xBlockSize;                      /*<< 空闲块大小 */
+    uint32_t xBlockSize;                      /*<< 空闲块大小 */
 } BlockLink_t;
 
 /*-----------------------------------------------------------*/
@@ -65,25 +65,25 @@ static void prvInsertBlockIntoFreeList( BlockLink_t *pxBlockToInsert );
 
 /* The size of the structure placed at the beginning of each allocated memory
 block must by correctly byte aligned. */
-static const size_t xHeapStructSize = ( sizeof( BlockLink_t ) + ( ( size_t ) ( portBYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) portBYTE_ALIGNMENT_MASK );
+static const uint32_t xHeapStructSize = ( sizeof( BlockLink_t ) + ( ( uint32_t ) ( portBYTE_ALIGNMENT - 1 ) ) ) & ~( ( uint32_t ) portBYTE_ALIGNMENT_MASK );
 
 /* Create a couple of list links to mark the start and end of the list. */
 static BlockLink_t xStart, *pxEnd = NULL;
 
 /* Keeps track of the number of free bytes remaining, but says nothing about
 fragmentation. */
-static size_t xFreeBytesRemaining = 0U;
-static size_t xMinimumEverFreeBytesRemaining = 0U;
+static uint32_t xFreeBytesRemaining = 0U;
+static uint32_t xMinimumEverFreeBytesRemaining = 0U;
 
-/* Gets set to the top bit of an size_t type.  When this bit in the xBlockSize
+/* Gets set to the top bit of an uint32_t type.  When this bit in the xBlockSize
 member of an BlockLink_t structure is set then the block belongs to the
 application.  When the bit is free the block is still part of the free heap
 space. */
-static size_t xBlockAllocatedBit = 0;
+static uint32_t xBlockAllocatedBit = 0;
 
 /*-----------------------------------------------------------*/
 
-static void *pvPortMalloc( size_t xWantedSize )
+static void *pvPortMalloc( uint32_t xWantedSize )
 {
 BlockLink_t *pxBlock, *pxPreviousBlock, *pxNewBlockLink;
 void *pvReturn = NULL;
@@ -271,13 +271,13 @@ BlockLink_t *pxLink;
 }
 /*-----------------------------------------------------------*/
 
-static size_t xPortGetFreeHeapSize( void )
+static uint32_t xPortGetFreeHeapSize( void )
 {
     return xFreeBytesRemaining;
 }
 /*-----------------------------------------------------------*/
 
-static size_t xPortGetMinimumEverFreeHeapSize( void )
+static uint32_t xPortGetMinimumEverFreeHeapSize( void )
 {
     return xMinimumEverFreeBytesRemaining;
 }
@@ -346,13 +346,13 @@ uint8_t *puc;
 
 static void vPortDefineHeapRegions( const HeapRegion_t * const pxHeapRegions )
 {
-BlockLink_t *pxFirstFreeBlockInRegion = NULL, *pxPreviousFreeBlock;
-size_t xAlignedHeap;
-size_t xTotalRegionSize, xTotalHeapSize = 0;
-BaseType_t xDefinedRegions = 0;
-size_t xAddress;
-const HeapRegion_t *pxHeapRegion;
-
+    BlockLink_t *pxFirstFreeBlockInRegion = NULL, *pxPreviousFreeBlock;
+    uint32_t xAlignedHeap;
+    uint32_t xTotalRegionSize, xTotalHeapSize = 0;
+    uint32_t xDefinedRegions = 0;
+    uint32_t xAddress;
+    const HeapRegion_t *pxHeapRegion;
+    
     /* Can only call once! */
     configASSERT( pxEnd == NULL );
 
@@ -363,14 +363,14 @@ const HeapRegion_t *pxHeapRegion;
         xTotalRegionSize = pxHeapRegion->xSizeInBytes;
 
         /* Ensure the heap region starts on a correctly aligned boundary. */
-        xAddress = ( size_t ) pxHeapRegion->pucStartAddress;
+        xAddress = ( uint32_t ) pxHeapRegion->pucStartAddress;
         if( ( xAddress & portBYTE_ALIGNMENT_MASK ) != 0 )
         {
             xAddress += ( portBYTE_ALIGNMENT - 1 );
             xAddress &= ~portBYTE_ALIGNMENT_MASK;
 
             /* Adjust the size for the bytes lost to alignment. */
-            xTotalRegionSize -= xAddress - ( size_t ) pxHeapRegion->pucStartAddress;
+            xTotalRegionSize -= xAddress - ( uint32_t ) pxHeapRegion->pucStartAddress;
         }
 
         xAlignedHeap = xAddress;
@@ -381,7 +381,7 @@ const HeapRegion_t *pxHeapRegion;
             /* xStart is used to hold a pointer to the first item in the list of
             free blocks.  The void cast is used to prevent compiler warnings. */
             xStart.pxNextFreeBlock = ( BlockLink_t * ) xAlignedHeap;
-            xStart.xBlockSize = ( size_t ) 0;
+            xStart.xBlockSize = ( uint32_t ) 0;
         }
         else
         {
@@ -390,7 +390,7 @@ const HeapRegion_t *pxHeapRegion;
             configASSERT( pxEnd != NULL );
 
             /* Check blocks are passed in with increasing start addresses. */
-            configASSERT( xAddress > ( size_t ) pxEnd );
+            configASSERT( xAddress > ( uint32_t ) pxEnd );
         }
 
         /* Remember the location of the end marker in the previous region, if
@@ -410,7 +410,7 @@ const HeapRegion_t *pxHeapRegion;
         sized to take up the entire heap region minus the space taken by the
         free block structure. */
         pxFirstFreeBlockInRegion = ( BlockLink_t * ) xAlignedHeap;
-        pxFirstFreeBlockInRegion->xBlockSize = xAddress - ( size_t ) pxFirstFreeBlockInRegion;
+        pxFirstFreeBlockInRegion->xBlockSize = xAddress - ( uint32_t ) pxFirstFreeBlockInRegion;
         pxFirstFreeBlockInRegion->pxNextFreeBlock = pxEnd;
 
         /* If this is not the first region that makes up the entire heap space
@@ -433,8 +433,8 @@ const HeapRegion_t *pxHeapRegion;
     /* Check something was actually defined before it is accessed. */
     configASSERT( xTotalHeapSize );
 
-    /* Work out the position of the top bit in a size_t variable. */
-    xBlockAllocatedBit = ( ( size_t ) 1 ) << ( ( sizeof( size_t ) * heapBITS_PER_BYTE ) - 1 );
+    /* Work out the position of the top bit in a uint32_t variable. */
+    xBlockAllocatedBit = ( ( uint32_t ) 1 ) << ( ( sizeof( uint32_t ) * heapBITS_PER_BYTE ) - 1 );
 }
 
 MM_OpsTypedef MM_Ops = 
