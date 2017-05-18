@@ -25,12 +25,12 @@ extern "C" {
 #define RB_UNLOCK       (0x00)
 
 typedef struct {
-    uint8_t Locked;
-    uint8_t *Buffer;
-    uint16_t TotalSize;
-    uint16_t FilledSize;
-    uint8_t *ReadPointer;
-    uint8_t *WritePointer;
+    uint8_t Lock;
+    uint8_t *buffer;
+    uint16_t size;
+    uint16_t fill;
+    uint8_t *read;
+    uint8_t *write;
 } Ringbuff_t;
 
 typedef struct RingbuffOpsTypedef_
@@ -51,15 +51,15 @@ typedef struct RingbuffOpsTypedef_
     /* 写入 */
     uint16_t (*Write)       (Ringbuff_t *rb, uint8_t* buf, uint16_t len);
     
-    uint16_t (*Locked)    (Ringbuff_t *rb);
+    uint16_t (*Lock)    (Ringbuff_t *rb);
     uint16_t (*Unlock)  (Ringbuff_t *rb);
     uint16_t (*IsLocked) (Ringbuff_t *rb);
     
 }RingbuffOpsTypedef;
 
-#define RINGBUFFER_NEW(name, TotalSize) \
-    static uint8_t ringmem##name[TotalSize]; \
-    Ringbuff_t name = {ringmem##name, (TotalSize), 0, ringmem##name, ringmem##name};
+#define RINGBUFFER_NEW(name, size) \
+    static uint8_t ringmem##name[size]; \
+    Ringbuff_t name = {ringmem##name, (size), 0, ringmem##name, ringmem##name};
 
 #define RINGBUFFER_EXTERN(name) extern Ringbuff_t name;
 

@@ -1,61 +1,58 @@
-/* Ring buffer implementation */
+/* Ring Buffer implementation */
 #include "ringbuffer.h"
 #include <assert.h>
 #include <string.h>
 
-static void ringbuffer_delay(uint32_t cnt)
-{
-    while(cnt--);
-}
-
 static uint16_t ringbuffer_empty(Ringbuff_t *rb)
 {
-    /* It's empty when the read and write pointers are the same. */
-    if (0 == rb->fill) {
+    /* It's empty when the ReadPointer and WritePointer pointers are the same. */
+    if (0 == rb->FilledSize) 
+    {
         return 1;
     }
-    else {
+    else 
+    {
         return 0;
     }
 }
 
 static uint16_t ringbuffer_Lock    (Ringbuff_t *rb)
 {
-    rb->Lock = RB_LOCKED;
+    rb->Locked = RB_LOCKED;
     return 0;
 }
 static uint16_t ringbuffer_Unlock  (Ringbuff_t *rb)
 {
-    rb->Lock = RB_UNLOCK;
+    rb->Locked = RB_UNLOCK;
 }
 static uint16_t ringbuffer_IsLocked (Ringbuff_t *rb)
 {
-    return (rb->Lock == RB_LOCKED);
+    return (rb->Locked == RB_LOCKED);
 }
 
 
 static uint16_t ringbuff_init(Ringbuff_t *rb)
 {
     assert(rb)  ;
-    rb->write = rb->buffer;
-    rb->read = rb->buffer;
+    rb->WritePointer = rb->Buffer;
+    rb->ReadPointer = rb->Buffer;
     return 0;
 }
 
 static uint16_t ringbuff_available(Ringbuff_t *rb)
 {
-    return rb->size - rb->fill;
+    return rb->TotalSize - rb->FilledSize;
 }
 
 static uint16_t ringbuff_used(Ringbuff_t *rb)
 {
-    return rb->fill;
+    return rb->FilledSize;
 }
 
 static uint16_t ringbuffer_full(Ringbuff_t *rb)
 {
-    /* It's full when the write ponter is 1 element before the read pointer*/
-    if (rb->size == rb->fill) {
+    /* It's full when the WritePointer ponter is 1 element before the ReadPointer pointer*/
+    if (rb->TotalSize == rb->FilledSize) {
         return 1;
     }else {
         return 0;
@@ -66,24 +63,24 @@ static uint16_t ringbuffer_read(Ringbuff_t *rb, uint8_t* buf, uint16_t len)
 {
     assert(len>0);
     __disable_irq();
-    if (rb->fill >= len) {
+    if (rb->FilledSize >= len) {
         // in one direction, there is enough data for retrieving
-        if (rb->write > rb->read) {
-            memcpy(buf, rb->read, len);
-            rb->read += len;
-        }else if (rb->write < rb->read) {
-            uint16_t len1 = rb->buffer + rb->size - 1 - rb->read + 1;
+        if (rb->WritePointer > rb->ReadPointer) {
+            memcpy(buf, rb->ReadPointer, len);
+            rb->ReadPointer += len;
+        }else if (rb->WritePointer < rb->ReadPointer) {
+            uint16_t len1 = rb->Buffer + rb->TotalSize - 1 - rb->ReadPointer + 1;
             if (len1 >= len) {
-                memcpy(buf, rb->read, len);
-                rb->read += len;
+                memcpy(buf, rb->ReadPointer, len);
+                rb->ReadPointer += len;
             } else {
                 uint16_t len2 = len - len1;
-                memcpy(buf, rb->read, len1);
-                memcpy(buf + len1, rb->buffer, len2);
-                rb->read = rb->buffer + len2; // Wrap around
+                memcpy(buf, rb->ReadPointer, len1);
+                memcpy(buf + len1, rb->Buffer, len2);
+                rb->ReadPointer = rb->Buffer + len2; // Wrap around
             }
         }
-        rb-> fill -= len;
+        rb-> FilledSize -= len;
         __enable_irq();
         return len;
     } else  {
@@ -96,24 +93,24 @@ static uint16_t ringbuffer_peek(Ringbuff_t *rb, uint8_t* buf, uint16_t len)
 {
     assert(len>0);
     __disable_irq();
-    if (rb->fill >= len) {
+    if (rb->FilledSize >= len) {
         // in one direction, there is enough data for retrieving
-        if (rb->write > rb->read) {
-            memcpy(buf, rb->read, len);
-            //rb->read += len;
-        }else if (rb->write < rb->read) {
-            uint16_t len1 = rb->buffer + rb->size - 1 - rb->read + 1;
+        if (rb->WritePointer > rb->ReadPointer) {
+            memcpy(buf, rb->ReadPointer, len);
+            //rb->ReadPointer += len;
+        }else if (rb->WritePointer < rb->ReadPointer) {
+            uint16_t len1 = rb->Buffer + rb->TotalSize - 1 - rb->ReadPointer + 1;
             if (len1 >= len) {
-                memcpy(buf, rb->read, len);
-                //rb->read += len;
+                memcpy(buf, rb->ReadPointer, len);
+                //rb->ReadPointer += len;
             } else {
                 uint16_t len2 = len - len1;
-                memcpy(buf, rb->read, len1);
-                memcpy(buf + len1, rb->buffer, len2);
-                //rb->read = rb->buffer + len2; // Wrap around
+                memcpy(buf, rb->ReadPointer, len1);
+                memcpy(buf + len1, rb->Buffer, len2);
+                //rb->ReadPointer = rb->Buffer + len2; // Wrap around
             }
         }
-        //rb-> fill -= len;
+        //rb-> FilledSize -= len;
         __enable_irq();
         return len;
     } else  {
@@ -126,27 +123,27 @@ static uint16_t ringbuffer_write(Ringbuff_t *rb, uint8_t* buf, uint16_t len)
 {
     assert(len > 0);
     __disable_irq();
-    if (rb->size - rb->fill < len) {
+    if (rb->TotalSize - rb->FilledSize < len) {
         __enable_irq();
         return 0;
     }
     else {
-        if (rb->write >= rb->read) {
-            uint16_t len1 = rb->buffer + rb->size - rb->write;
+        if (rb->WritePointer >= rb->ReadPointer) {
+            uint16_t len1 = rb->Buffer + rb->TotalSize - rb->WritePointer;
             if (len1 >= len) {
-                memcpy(rb->write, buf, len);
-                rb->write += len;
+                memcpy(rb->WritePointer, buf, len);
+                rb->WritePointer += len;
             } else {
                 uint16_t len2 = len - len1;
-                memcpy(rb->write, buf, len1);
-                memcpy(rb->buffer, buf+len1, len2);
-                rb->write = rb->buffer + len2; // Wrap around
+                memcpy(rb->WritePointer, buf, len1);
+                memcpy(rb->Buffer, buf+len1, len2);
+                rb->WritePointer = rb->Buffer + len2; // Wrap around
             }
         } else {
-            memcpy(rb->write, buf, len);
-            rb->write += len;
+            memcpy(rb->WritePointer, buf, len);
+            rb->WritePointer += len;
         }
-        rb->fill += len;
+        rb->FilledSize += len;
         __enable_irq();
         return len;
     }
@@ -161,7 +158,7 @@ RingbuffOpsTypedef RB_FUNC =
     .Read       = ringbuffer_read,
     .Write      = ringbuffer_write,
     .Init       = ringbuff_init,
-    .Lock       = ringbuffer_Lock,
+    .Locked       = ringbuffer_Lock,
     .Unlock     = ringbuffer_Unlock,
     .IsLocked   = ringbuffer_IsLocked,
     .Peek       = ringbuffer_peek
