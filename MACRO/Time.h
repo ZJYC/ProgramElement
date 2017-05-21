@@ -10,7 +10,6 @@
                                     (val) += (add);\
                                     if((val) > TickFull)(val) = 0;\
                                     }
-}
 #endif
 
 
@@ -33,7 +32,21 @@
 #endif
 
 
+#if 1
 
+#define SingleLinkAddToEnd(HeadTemp,Item)                   \
+{                                                           \
+    while((HeadTemp)->Next)(HeadTemp) = (HeadTemp)->Next;   \
+    (HeadTemp)->Next = (Item);                              \
+    (Item)->Next = 0;                                       \
+}
+
+#define SingleLinkAddToEnd(HeadTemp,Item)
+{
+    
+}
+
+#endif
 
 
 
